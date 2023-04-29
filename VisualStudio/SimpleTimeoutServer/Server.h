@@ -3,14 +3,84 @@
 
 #include <iostream>
 #include <string>
+#include <thread>
+#include <map>
+#include <ctype.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #pragma comment (lib, "ws2_32.lib")
 
-//using socklen_t = int;
-//#define PORT 9909
+int getTimeout(char* reqUrl) {
+    int timeout = 3000;
+    std::string extracted = "";
+    bool reachedQueryString = false;
+    
+    for (int i = 0; i < strlen(reqUrl); i++) {
+        char current = reqUrl[i];
+        
+        if (current == '?') {//find the beginning of the query string
+            reachedQueryString = true;
+        }
+        else if (
+            reachedQueryString &&
+            reqUrl[i] == 't' &&
+            reqUrl[i + 1] == 'i' &&
+            reqUrl[i + 2] == 'm' &&
+            reqUrl[i + 3] == 'e'
+            ) {//get the two chars next to the equal sign, but only if they are ints
+            extracted += isdigit(reqUrl[i + 5]) ? reqUrl[i + 5] : (char) 0;
+            extracted += isdigit(reqUrl[i + 6]) ? reqUrl[i + 6] : (char) 0;
+            break;//break out of the loop, we have what we need
+        }
+    }
+
+    //parse the extracted value to int
+    //If extracted is an empty string we either didn't find the value in the query string,
+    //or it wasn't a number.In this case, default to 3 seconds(3000 ms);
+    int extractedInt = std::stoi(extracted == "" ? "3000" : extracted);
+    if (!(extractedInt < 0) && !(extractedInt > 60)) {
+        return extractedInt * 1000;
+    }
+
+    std::cout << extracted << std::endl;
+
+    return timeout;
+}
+
+void threadHandleResponse(int* nSocket) {
+        std::string successResponse = 
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/plain\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+            "Success\r\n";
+
+        std::string failureResponse = 
+            "HTTP/1.1 400 Bad Request\r\n"
+            "Content-Type: text/plain\r\n"
+            "Content-Length: 0\r\n"
+            "\r\n"
+            "Bad Request\r\n";
+
+        int nLen = sizeof(struct sockaddr);
+        int clientSocket = accept(*nSocket, NULL, &nLen);
+        
+        char buff[2000];
+        int receivingErrorCode = recv(clientSocket, buff, 2000, 0);
+        if (receivingErrorCode >= 0) {
+            Sleep(getTimeout(buff));
+            send(clientSocket, successResponse.c_str(), successResponse.length(), 0);
+        }
+        else {
+            std::cout << "error receiving request url" << std::endl;
+            send(clientSocket, successResponse.c_str(), successResponse.length(), 0);
+        }
+
+        closesocket(clientSocket);
+        //std::thread currentRequestThread = std::thread();
+}
 
 class Server {
     fd_set fr, fw, fe;
@@ -155,20 +225,10 @@ private:
     void processNewRequest() {
         //new connection request
         if (FD_ISSET(this->nSocket, &this->fr)) {
-            std::string response = "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/plain\r\n"
-                "Content-Length: 0\r\n"
-                "\r\n"
-                "successful connection\r\n";
-
-            int nLen = sizeof(struct sockaddr);
-            int clientSocket = accept(nSocket, NULL, &nLen);
-            send(clientSocket, response.c_str(), response.length(), 0);
-            Sleep(1);
-            closesocket(clientSocket);
+            std::thread currentRequestThread (threadHandleResponse, &this->nSocket);
+            currentRequestThread.detach();
         }
     }
-
 };
 
 #endif // !SERVER
