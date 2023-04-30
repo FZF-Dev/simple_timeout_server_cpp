@@ -17,36 +17,45 @@ int getTimeout(char* reqUrl) {
     std::string extracted = "";
     bool reachedQueryString = false;
     
-    for (int i = 0; i < strlen(reqUrl); i++) {
-        char current = reqUrl[i];
-        
-        if (current == '?') {//find the beginning of the query string
-            reachedQueryString = true;
+    try {
+        for (int i = 0; i < strlen(reqUrl); i++) {
+            if (i > 1999) break;
+
+            char current = reqUrl[i];
+
+            if (current == '?') {//find the beginning of the query string
+                reachedQueryString = true;
+            }
+            else if (
+                i >= 1 &&
+                reachedQueryString &&
+                (reqUrl[i - 1] == '?' ||
+                reqUrl[i - 1] == '&') &&
+                reqUrl[i] == 't' &&
+                reqUrl[i + 1] == 'i' &&
+                reqUrl[i + 2] == 'm' &&
+                reqUrl[i + 3] == 'e' &&
+                reqUrl[i + 4] == '='
+                ) {//get the two chars next to the equal sign, but only if they are ints
+                extracted += isdigit(reqUrl[i + 5]) ? reqUrl[i + 5] : (char)0;
+                extracted += isdigit(reqUrl[i + 6]) ? reqUrl[i + 6] : (char)0;
+                break;//break out of the loop, we have what we need
+            }
         }
-        else if (
-            reachedQueryString &&
-            reqUrl[i] == 't' &&
-            reqUrl[i + 1] == 'i' &&
-            reqUrl[i + 2] == 'm' &&
-            reqUrl[i + 3] == 'e'
-            ) {//get the two chars next to the equal sign, but only if they are ints
-            extracted += isdigit(reqUrl[i + 5]) ? reqUrl[i + 5] : (char) 0;
-            extracted += isdigit(reqUrl[i + 6]) ? reqUrl[i + 6] : (char) 0;
-            break;//break out of the loop, we have what we need
-        }
+    }
+    catch (...) {
+        extracted = 3;
     }
 
     //parse the extracted value to int
     //If extracted is an empty string we either didn't find the value in the query string,
     //or it wasn't a number.In this case, default to 3 seconds(3000 ms);
-    int extractedInt = std::stoi(extracted == "" ? "3000" : extracted);
+    std::cout << extracted << std::endl;
+    int extractedInt = std::stoi(extracted == "" ? "3" : extracted);
     if (!(extractedInt < 0) && !(extractedInt > 60)) {
         return extractedInt * 1000;
     }
-
-    std::cout << extracted << std::endl;
-
-    return timeout;
+    else return 3000;
 }
 
 void threadHandleResponse(int* nSocket) {
