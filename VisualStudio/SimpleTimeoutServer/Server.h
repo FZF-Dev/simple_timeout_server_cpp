@@ -121,7 +121,6 @@ public:
     }
 
     void start() {
-        //Listen for request from client
         int errorCode = listen(nSocket, this->connectionQueueLength);
         if (errorCode < 0) {
             std::cout << "failed to start listening on local port..." << std::endl;
@@ -172,13 +171,13 @@ public:
 
 private:
     bool initServer() {
-        if (startWSA() && initSocket()) return true;
+        if (startWsa() && initSocket()) return true;
         return false;
     }
 
-    bool startWSA() {
+    bool startWsa() {
         WSADATA ws;
-        int wsaStartCode = (int)WSAStartup(MAKEWORD(2, 2), &ws);
+        int wsaStartCode = (int) WSAStartup(MAKEWORD(2, 2), &ws);
         if (wsaStartCode < 0) {
             std::cout << "WSA failed to initialize... error code: " << wsaStartCode << std::endl << "exiting..." << std::endl;
             return false;
@@ -232,7 +231,6 @@ private:
     }
 
     void processNewRequest() {
-        //new connection request
         if (FD_ISSET(this->nSocket, &this->fr)) {
             std::thread currentRequestThread (threadHandleResponse, &this->nSocket);
             currentRequestThread.detach();
@@ -240,4 +238,4 @@ private:
     }
 };
 
-#endif // !SERVER
+#endif
